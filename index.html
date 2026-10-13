@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Rental DBMS</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--mut:#94a3b8;--line:#334155;--acc:#f59e0b;--sky:#38bdf8;--ok:#22c55e;--bad:#ef4444;--inp:#0f172a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2{font-family:Georgia,"Times New Roman",serif;color:var(--acc);margin:0}
+header{padding:16px 18px 6px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:22px}
+nav{display:flex;gap:6px;padding:8px 18px;overflow-x:auto}
+nav button{white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit}
+nav button.on{color:#0f172a;background:var(--acc);border-color:var(--acc);font-weight:700}
+nav .n{opacity:.8;font-size:11px;margin-left:5px}
+main{padding:8px 18px 30px;max-width:1100px;margin:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:8px 0 16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.stat b{display:block;font:700 26px Georgia,serif;color:var(--acc)}.stat span{color:var(--mut);font-size:12px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:6px 0 10px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th{background:var(--acc);color:#0f172a;text-align:left;padding:7px 10px;font-size:12px;white-space:nowrap}
+td{padding:7px 10px;border-top:1px solid var(--line);vertical-align:middle}
+.btn{background:var(--acc);color:#0f172a;border:0;border-radius:7px;padding:7px 12px;font:600 13px inherit;cursor:pointer}
+.btn.s{background:transparent;color:var(--sky);border:1px solid var(--line);padding:3px 8px;font-weight:500;margin-right:4px}
+.btn.d{color:var(--bad)}.btn.g{color:var(--ok)}
+input,select,textarea{background:var(--inp);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;font:inherit;width:100%}
+textarea{font-family:Consolas,Menlo,monospace;font-size:13px;color:#86efac;min-height:110px}
+.srch{max-width:240px}
+.tag{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:var(--line)}
+.tag.ok{color:var(--ok)}.tag.bad{color:var(--bad)}.tag.w{color:var(--acc)}
+.ov{position:fixed;inset:0;background:rgba(2,6,23,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.mod{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;width:100%;max-width:440px;max-height:90vh;overflow:auto}
+.mod label{display:block;margin:9px 0 3px;color:var(--mut);font-size:12px}
+.err{color:var(--bad);margin-top:10px;font-size:13px}
+.log div{padding:5px 0;border-top:1px solid var(--line);color:var(--mut);font-size:13px}.log div:first-child{border:0}
+.note{color:var(--mut);font-size:12px;margin-top:6px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--acc);padding:10px 16px;border-radius:10px;display:none;z-index:20;max-width:90vw}
+</style></head><body>
+<header><h1>🚗 Car Rental DBMS</h1><span class="note">Flask API + SQLite database</span></header>
+<nav id="nav"></nav><main id="main"></main><div id="toast"></div>
+<script>
+const opt=a=>a.map(x=>({v:x,l:x}));
+const S={
+branches:{t:'Branches',lab:r=>r.name,f:[{k:'name',l:'Branch name',req:1},{k:'city',l:'City',req:1},{k:'state',l:'State'}]},
+customers:{t:'Customers',lab:r=>r.name,f:[{k:'name',l:'Name',req:1},{k:'phone',l:'Phone',req:1},{k:'email',l:'Email'},{k:'license_no',l:'Licence no.',req:1},{k:'city',l:'City'}]},
+vehicles:{t:'Vehicles',lab:r=>r.reg_no+' · '+r.make_model,f:[{k:'reg_no',l:'Registration no.',req:1},{k:'make_model',l:'Make / model',req:1},{k:'category',l:'Category',o:opt(['Hatchback','Sedan','SUV','MPV','Luxury'])},{k:'daily_rate',l:'Daily rate (₹)',n:1,req:1},{k:'branch_id',l:'Branch',fk:'branches',req:1},{k:'status',l:'Status',o:opt(['Available','Rented','Maintenance'])}]},
+reservations:{t:'Reservations',lab:r=>'#'+r.id+' · '+nm('customers',r.customer_id)+' / '+nm('vehicles',r.vehicle_id),f:[{k:'customer_id',l:'Customer',fk:'customers',req:1},{k:'vehicle_id',l:'Vehicle',fk:'vehicles',req:1},{k:'pickup_branch_id',l:'Pickup branch',fk:'branches',req:1},{k:'start_date',l:'Start date',type:'date',req:1},{k:'end_date',l:'End date',type:'date',req:1},{k:'status',l:'Status',o:opt(['Pending','Confirmed','Active','Completed','Cancelled'])}]},
+rentals:{t:'Rentals',lab:r=>'Rental #'+r.id+' ('+nm('reservations',r.reservation_id)+')',f:[{k:'reservation_id',l:'Reservation',fk:'reservations',req:1},{k:'pickup_datetime',l:'Pickup time',type:'datetime-local',req:1},{k:'odometer_out',l:'Odometer out',n:1},{k:'fuel_out',l:'Fuel out',o:opt(['Full','3/4','1/2','1/4'])},{k:'deposit',l:'Deposit (₹)',n:1}]},
+returns:{t:'Returns',lab:r=>'Return #'+r.id,f:[{k:'rental_id',l:'Rental',fk:'rentals',req:1},{k:'return_datetime',l:'Return time',type:'datetime-local',req:1},{k:'odometer_in',l:'Odometer in',n:1,req:1},{k:'damage_notes',l:'Damage notes'},{k:'late_fee',l:'Late fee (₹)',n:1}]},
+payments:{t:'Payments',lab:r=>'Payment #'+r.id,f:[{k:'rental_id',l:'Rental',fk:'rentals',req:1},{k:'amount',l:'Amount (₹)',n:1,req:1},{k:'mode',l:'Mode',o:opt(['UPI','Card','Cash','Net banking'])},{k:'status',l:'Status',o:opt(['Pending','SUCCESS','Failed','Refunded'])}]}
+};
+const TABS=['dashboard',...Object.keys(S),'sql'];
+let tab='dashboard',q='',DB={},DASH={};
+const $nav=document.getElementById('nav'),$main=document.getElementById('main');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const get=(t,id)=>(DB[t]||[]).find(r=>r.id===id);
+const nm=(t,id)=>{const r=get(t,id);return r?S[t].lab(r):'#'+id+' ?'};
+const money=v=>'₹'+Number(v||0).toLocaleString('en-IN');
+const nowLocal=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
+const rentalOpen=r=>!DB.returns.some(x=>x.rental_id===r.id);
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',3500)}
+async function api(method,url,body){
+  const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Request failed');return j}
+async function load(){
+  const ks=Object.keys(S),res=await Promise.all([...ks.map(k=>api('GET','/api/'+k)),api('GET','/api/dashboard')]);
+  ks.forEach((k,i)=>DB[k]=res[i]);DASH=res[ks.length];render()}
+async function run(fn,msg){try{const r=await fn();await load();if(msg)toast(typeof msg==='function'?msg(r):msg);return null}catch(e){return e.message}}
+
+function form(title,fields,vals,cb){
+  const ov=document.createElement('div');ov.className='ov';
+  const h=fields.map(f=>{const v=vals[f.k]??'';let inp;
+    if(f.fk||f.o){const os=f.fk?DB[f.fk].map(r=>({v:r.id,l:S[f.fk].lab(r)})):f.o;inp=`<select name="${f.k}">${os.map(o=>`<option value="${esc(o.v)}"${String(o.v)===String(v)?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`}
+    else inp=`<input name="${f.k}" type="${f.type||(f.n?'number':'text')}" value="${esc(v)}" ${f.n?'step="any" min="0"':''}>`;
+    return `<label>${f.l}${f.req?' *':''}</label>${inp}`}).join('');
+  ov.innerHTML=`<form class="mod"><h2 style="font-size:18px;margin-bottom:6px">${esc(title)}</h2>${h}<div class="err"></div><div class="row" style="margin-top:14px"><button type="button" class="btn s c">Cancel</button><button class="btn">Save</button></div></form>`;
+  document.body.appendChild(ov);
+  ov.querySelector('.c').onclick=()=>ov.remove();
+  ov.querySelector('form').onsubmit=async e=>{e.preventDefault();const v={};
+    for(const f of fields){let x=ov.querySelector(`[name="${f.k}"]`).value.trim();
+      if(f.req&&x==='')return ov.querySelector('.err').textContent=f.l+' is required';
+      v[f.k]=x===''?'':(f.n||f.fk?Number(x):x)}
+    const er=await cb(v);if(er)ov.querySelector('.err').textContent=er;else ov.remove()};
+}
+function edit(t,id){const s=S[t],row=id?get(t,id):null;
+  if(!row)for(const f of s.f)if(f.fk&&!DB[f.fk].length)return toast('Add a record in '+S[f.fk].t+' first');
+  const d={};s.f.forEach(f=>{if(f.type==='datetime-local')d[f.k]=nowLocal();if(f.fk)d[f.k]=DB[f.fk][0]?.id});
+  form((row?'Edit ':'Add ')+s.t.replace(/s$/,''),s.f,row||d,v=>run(()=>api(row?'PUT':'POST','/api/'+t+(row?'/'+id:''),v),(row?'Updated ':'Added ')+s.t.toLowerCase().replace(/s$/,'')))}
+async function del(t,id){if(!confirm('Delete record #'+id+'?'))return;
+  const e=await run(()=>api('DELETE','/api/'+t+'/'+id),'Deleted #'+id);if(e)toast('⚠ '+e)}
+function pickup(id){form('Pickup for reservation #'+id,[{k:'pickup_datetime',l:'Pickup time',type:'datetime-local'},{k:'odometer_out',l:'Odometer out',n:1},{k:'fuel_out',l:'Fuel out',o:opt(['Full','3/4','1/2','1/4'])},{k:'deposit',l:'Deposit (₹)',n:1}],{pickup_datetime:nowLocal(),odometer_out:0,deposit:5000},v=>run(()=>api('POST',`/api/reservations/${id}/pickup`,v),'Pickup done – vehicle is now Rented'))}
+function doReturn(id){const rt=get('rentals',id);
+  form('Return for rental #'+id,[{k:'return_datetime',l:'Return time',type:'datetime-local',req:1},{k:'odometer_in',l:'Odometer in',n:1,req:1},{k:'damage_notes',l:'Damage notes'}],{return_datetime:nowLocal(),odometer_in:rt.odometer_out,damage_notes:'None'},
+  v=>run(()=>api('POST',`/api/rentals/${id}/return`,v),r=>`Returned – late ${r.late_hours}h, bill ${money(r.bill)}`))}
+function avail(){form('Check availability',[{k:'branch_id',l:'Branch',fk:'branches'},{k:'start',l:'From',type:'date',req:1},{k:'end',l:'To',type:'date',req:1}],{},async v=>{
+  try{const r=await api('GET',`/api/available?start=${v.start}&end=${v.end}&branch_id=${v.branch_id||''}`);
+    toast(r.length?'Available: '+r.map(x=>x.reg_no+' '+x.make_model).join(', '):'No vehicles available for those dates');return null}catch(e){return e.message}})}
+
+function tag(v){const c=/^(Available|Confirmed|SUCCESS|Completed|Returned)$/.test(v)?'ok':/^(Maintenance|Cancelled|Failed|Open)$/.test(v)?'bad':/^(Rented|Pending|Active|Refunded)$/.test(v)?'w':'';return c?`<span class="tag ${c}">${esc(v)}</span>`:esc(v)}
+function cell(f,r){const v=r[f.k];if(v===''||v==null)return '–';if(f.fk)return esc(nm(f.fk,v));
+  if(['daily_rate','deposit','late_fee','amount'].includes(f.k))return money(v);return f.k==='status'?tag(v):esc(v)}
+function dash(){const d=DASH,st=[['Customers',d.customers],['Vehicles',d.vehicles],['Available',d.available],['Rented',d.rented],['Open reservations',d.open_reservations],['Active rentals',d.active_rentals],['Revenue (paid)',money(d.revenue)],['Awaiting payment',money(d.pending)]];
+  return `<div class="cards">${st.map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('')}</div>
+  <div class="box"><h2 style="font-size:16px;margin-bottom:8px">Fleet &amp; revenue by branch</h2><div class="wrap"><table><tr><th>Branch</th><th>Vehicles</th><th>Available</th><th>Rented</th><th>Revenue (paid)</th></tr>${d.fleet.map((b,i)=>`<tr><td>${esc(b.name)}</td><td>${b.vehicles}</td><td>${b.available||0}</td><td>${b.rented||0}</td><td>${money(d.revenue_by_branch[i]?.revenue)}</td></tr>`).join('')||'<tr><td colspan=5>No branches</td></tr>'}</table></div></div>
+  <div class="box log"><h2 style="font-size:16px;margin-bottom:8px">Live activity (from database log)</h2>${d.activity.map(l=>`<div>${esc(l.ts)} – ${esc(l.message)}</div>`).join('')}</div>
+  <p class="note">Workflow: add records → create a Reservation → Pickup → Return. Triggers in the database update vehicle and reservation status; the late fee is 10% of the daily rate per late hour.</p>`}
+function grid(t){
+  const s=S[t],fs=s.f,rows=DB[t].filter(r=>!q||JSON.stringify(Object.values(r)).toLowerCase().includes(q.toLowerCase()));
+  const extra=r=>{let a='';if(t==='reservations'&&/Pending|Confirmed/.test(r.status))a+=`<button class="btn s g" data-a="pickup" data-id="${r.id}">Pickup</button>`;
+    if(t==='rentals'&&rentalOpen(r))a+=`<button class="btn s g" data-a="ret" data-id="${r.id}">Return</button>`;return a};
+  return `<div class="row"><h2>${s.t} <span class="note">${DB[t].length} rows</span></h2><div class="row" style="margin:0"><input class="srch" id="q" placeholder="Search…" value="${esc(q)}">${t==='vehicles'?'<button class="btn s" data-a="avail">Check availability</button>':''}<button class="btn" data-a="add">+ Add</button></div></div>
+  <div class="wrap"><table><tr><th>ID</th>${fs.map(f=>`<th>${f.l}</th>`).join('')}${t==='rentals'?'<th>State</th>':''}<th></th></tr>
+  ${rows.map(r=>`<tr><td><b>${r.id}</b></td>${fs.map(f=>`<td>${cell(f,r)}</td>`).join('')}${t==='rentals'?`<td>${tag(rentalOpen(r)?'Open':'Returned')}</td>`:''}<td style="white-space:nowrap">${extra(r)}<button class="btn s" data-a="edit" data-id="${r.id}">Edit</button><button class="btn s d" data-a="del" data-id="${r.id}">Delete</button></td></tr>`).join('')||`<tr><td colspan="${fs.length+3}" style="color:var(--mut)">No records yet – click + Add</td></tr>`}</table></div>`}
+const PRESETS={
+'Revenue per branch':"SELECT * FROM v_revenue_by_branch;",
+'Available vehicles':"SELECT v.reg_no, v.make_model, v.daily_rate FROM vehicles v\nWHERE v.status='Available' AND v.id NOT IN\n (SELECT vehicle_id FROM reservations WHERE status NOT IN ('Cancelled','Completed')\n  AND start_date<='2026-10-21' AND end_date>='2026-10-18');",
+'Return summary':"SELECT rt.id AS return_id, c.name, v.reg_no, rt.return_datetime, rt.late_fee\nFROM returns rt JOIN rentals r ON r.id=rt.rental_id\nJOIN reservations rs ON rs.id=r.reservation_id\nJOIN customers c ON c.id=rs.customer_id JOIN vehicles v ON v.id=rs.vehicle_id;"};
+function sqlPage(){return `<div class="box"><h2 style="font-size:16px;margin-bottom:8px">SQL Console (read-only)</h2>
+  <div class="row" style="justify-content:flex-start">${Object.keys(PRESETS).map(k=>`<button class="btn s" data-p="${esc(k)}">${esc(k)}</button>`).join('')}</div>
+  <textarea id="sqlbox" spellcheck="false">${esc(PRESETS['Revenue per branch'])}</textarea>
+  <div class="row"><button class="btn" data-a="runsql">Run query</button><span class="note">Only SELECT statements run here.</span></div><div id="sqlout"></div></div>`}
+async function runSql(){const o=document.getElementById('sqlout');
+  try{const r=await api('POST','/api/sql',{sql:document.getElementById('sqlbox').value});
+    o.innerHTML=`<div class="wrap"><table><tr>${r.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${r.rows.map(x=>`<tr>${x.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')||'<tr><td>No rows</td></tr>'}</table></div>`}
+  catch(e){o.innerHTML=`<div class="err">${esc(e.message)}</div>`}}
+function render(){
+  $nav.innerHTML=TABS.map(t=>`<button class="${t===tab?'on':''}" data-t="${t}">${t==='dashboard'?'Dashboard':t==='sql'?'SQL Console':S[t].t}${S[t]?`<span class="n">${(DB[t]||[]).length}</span>`:''}</button>`).join('');
+  if(tab==='sql'){if(!document.getElementById('sqlbox'))$main.innerHTML=sqlPage();return}
+  $main.innerHTML=tab==='dashboard'?dash():grid(tab);
+  const qi=document.getElementById('q');if(qi)qi.oninput=()=>{q=qi.value;const p=qi.selectionStart;render();const n=document.getElementById('q');n.focus();n.setSelectionRange(p,p)};
+}
+$nav.onclick=e=>{const t=e.target.closest('[data-t]')?.dataset.t;if(t){tab=t;q='';$main.innerHTML='';render()}};
+$main.onclick=e=>{const p=e.target.closest('[data-p]');if(p){document.getElementById('sqlbox').value=PRESETS[p.dataset.p];return}
+  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=Number(b.dataset.id);
+  if(a==='add')edit(tab);else if(a==='edit')edit(tab,id);else if(a==='del')del(tab,id);else if(a==='pickup')pickup(id);else if(a==='ret')doReturn(id);else if(a==='avail')avail();else if(a==='runsql')runSql()};
+load().catch(e=>{$main.innerHTML=location.protocol==='file:'?'<div class="box"><h2>Start the server first</h2><p>This page was opened as a file. Run <b>python app.py</b> (or double-click run.bat / run.sh) in the car_rental_app folder, then open <b>http://127.0.0.1:5000</b>. No Python? Use the standalone file car_rental_standalone.html instead.</p></div>':'<div class="err">Cannot reach the server: '+esc(e.message)+'</div>'});
+</script></body></html>
