@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Car Rental DBMS</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--text:#0f172a;--mut:#64748b;--line:#e2e8f0;--acc:#d97706;--sky:#0284c7;--ok:#16a34a;--bad:#dc2626;--inp:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--mut:#94a3b8;--line:#334155;--acc:#f59e0b;--sky:#38bdf8;--ok:#22c55e;--bad:#ef4444;--inp:#0f172a}}
+:root[data-theme="dark"]{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--mut:#94a3b8;--line:#334155;--acc:#f59e0b;--sky:#38bdf8;--ok:#22c55e;--bad:#ef4444;--inp:#0f172a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2{font-family:Georgia,"Times New Roman",serif;color:var(--acc);margin:0}
+header{padding:16px 18px 6px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:22px}
+nav{display:flex;gap:6px;padding:8px 18px;overflow-x:auto}
+nav button{white-space:nowrap;background:var(--card);color:var(--mut);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font:inherit}
+nav button.on{color:var(--bg);background:var(--acc);border-color:var(--acc);font-weight:700}
+nav .n{opacity:.8;font-size:11px;margin-left:5px}
+main{padding:8px 18px 30px;max-width:1100px;margin:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:8px 0 16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.stat b{display:block;font:700 26px Georgia,serif;color:var(--acc)}.stat span{color:var(--mut);font-size:12px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:6px 0 10px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th{background:var(--acc);color:#0f172a;text-align:left;padding:7px 10px;font-size:12px;white-space:nowrap}
+td{padding:7px 10px;border-top:1px solid var(--line);vertical-align:middle}
+.btn{background:var(--acc);color:#0f172a;border:0;border-radius:7px;padding:7px 12px;font:600 13px inherit;cursor:pointer}
+.btn.s{background:transparent;color:var(--sky);border:1px solid var(--line);padding:3px 8px;font-weight:500;margin-right:4px}
+.btn.d{color:var(--bad)}.btn.g{color:var(--ok)}
+input,select{background:var(--inp);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px;font:inherit;width:100%}
+.srch{max-width:240px}
+.tag{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:var(--line)}
+.tag.ok{color:var(--ok)}.tag.bad{color:var(--bad)}.tag.w{color:var(--acc)}
+.ov{position:fixed;inset:0;background:rgba(2,6,23,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.mod{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;width:100%;max-width:440px;max-height:90vh;overflow:auto}
+.mod label{display:block;margin:9px 0 3px;color:var(--mut);font-size:12px}
+.err{color:var(--bad);margin-top:10px;font-size:13px}
+.log div{padding:5px 0;border-top:1px solid var(--line);color:var(--mut);font-size:13px}.log div:first-child{border:0}
+.note{color:var(--mut);font-size:12px;margin-top:6px}
+</style></head><body>
+<header><h1>🚗 Car Rental DBMS</h1><button class="btn s" id="reset">Reset sample data</button></header>
+<nav id="nav"></nav><main id="main"></main>
+<script>
+const KEY='carrental_db_v1';
+const SEED={branches:[{id:'br01',name:'Hyderabad Airport Hub',city:'Hyderabad',state:'Telangana'},{id:'br02',name:'Koramangala Branch',city:'Bengaluru',state:'Karnataka'}],
+customers:[{id:'c01',name:'Rahul Verma',phone:'9876543210',email:'rahul@gmail.com',license_no:'TS0920210045',city:'Hyderabad'},{id:'c02',name:'Ananya Roy',phone:'9123456780',email:'ananya@gmail.com',license_no:'KA0120190872',city:'Bengaluru'},{id:'c03',name:'Karthik Nair',phone:'9988776655',email:'karthik@gmail.com',license_no:'TS0720180331',city:'Hyderabad'}],
+vehicles:[{id:'v101',reg_no:'TS09EA4521',make_model:'Hyundai Creta',category:'SUV',daily_rate:2500,branch_id:'br01',status:'Available'},{id:'v102',reg_no:'KA01MJ7788',make_model:'Maruti Swift',category:'Hatchback',daily_rate:1200,branch_id:'br02',status:'Available'},{id:'v103',reg_no:'TS07FK1190',make_model:'Toyota Innova',category:'MPV',daily_rate:3000,branch_id:'br01',status:'Available'}],
+reservations:[{id:'r701',customer_id:'c01',vehicle_id:'v101',branch_id:'br01',start_date:'2026-10-18',end_date:'2026-10-21',status:'Confirmed'},{id:'r702',customer_id:'c02',vehicle_id:'v102',branch_id:'br02',start_date:'2026-10-19',end_date:'2026-10-20',status:'Pending'}],
+rentals:[],returns:[],payments:[],log:['Sample database loaded']};
+let DB;try{DB=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!DB)DB=JSON.parse(JSON.stringify(SEED));
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){}};
+const opt=a=>a.map(x=>({v:x,l:x}));
+const S={
+branches:{t:'Branches',p:'br',lab:r=>r.name,f:[{k:'name',l:'Branch name',req:1},{k:'city',l:'City',req:1},{k:'state',l:'State'}]},
+customers:{t:'Customers',p:'c',lab:r=>r.name,f:[{k:'name',l:'Name',req:1},{k:'phone',l:'Phone',req:1,uniq:1},{k:'email',l:'Email'},{k:'license_no',l:'Licence no.',req:1,uniq:1},{k:'city',l:'City'}]},
+vehicles:{t:'Vehicles',p:'v',lab:r=>r.reg_no+' · '+r.make_model,f:[{k:'reg_no',l:'Registration no.',req:1,uniq:1},{k:'make_model',l:'Make / model',req:1},{k:'category',l:'Category',o:opt(['Hatchback','Sedan','SUV','MPV','Luxury'])},{k:'daily_rate',l:'Daily rate (₹)',n:1,req:1},{k:'branch_id',l:'Branch',fk:'branches',req:1},{k:'status',l:'Status',o:opt(['Available','Rented','Maintenance'])}]},
+reservations:{t:'Reservations',p:'r',lab:r=>r.id+' · '+nm('customers',r.customer_id)+' / '+nm('vehicles',r.vehicle_id),f:[{k:'customer_id',l:'Customer',fk:'customers',req:1},{k:'vehicle_id',l:'Vehicle',fk:'vehicles',req:1},{k:'branch_id',l:'Pickup branch',fk:'branches',req:1},{k:'start_date',l:'Start date',type:'date',req:1},{k:'end_date',l:'End date',type:'date',req:1},{k:'status',l:'Status',o:opt(['Pending','Confirmed','Active','Completed','Cancelled'])}]},
+rentals:{t:'Rentals',p:'rt',lab:r=>r.id,f:[{k:'reservation_id',l:'Reservation',fk:'reservations',req:1},{k:'pickup_datetime',l:'Pickup time',type:'datetime-local',req:1},{k:'odometer_out',l:'Odometer out',n:1},{k:'fuel_out',l:'Fuel out',o:opt(['Full','3/4','1/2','1/4'])},{k:'deposit',l:'Deposit (₹)',n:1}]},
+returns:{t:'Returns',p:'ret',lab:r=>r.id,f:[{k:'rental_id',l:'Rental',fk:'rentals',req:1},{k:'return_datetime',l:'Return time',type:'datetime-local',req:1},{k:'odometer_in',l:'Odometer in',n:1},{k:'damage_notes',l:'Damage notes'},{k:'late_fee',l:'Late fee (₹)',n:1}]},
+payments:{t:'Payments',p:'pay',lab:r=>r.id,f:[{k:'rental_id',l:'Rental',fk:'rentals',req:1},{k:'amount',l:'Amount (₹)',n:1,req:1},{k:'mode',l:'Mode',o:opt(['UPI','Card','Cash','Net banking'])},{k:'status',l:'Status',o:opt(['Pending','SUCCESS','Failed','Refunded'])}]}
+};
+const TABS=['dashboard',...Object.keys(S)];let tab='dashboard',q='';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const get=(t,id)=>DB[t].find(r=>r.id===id);
+const nm=(t,id)=>{const r=get(t,id);return r?S[t].lab(r):'?'};
+const nid=t=>{const p=S[t].p;let m=0;DB[t].forEach(r=>{const n=parseInt(r.id.slice(p.length));if(n>m)m=n});if(!m&&t!=='vehicles')m=0;if(t==='vehicles'&&m<100)m=100;return p+String(m+1).padStart(2,'0')};
+const log=m=>{DB.log.unshift(new Date().toLocaleTimeString()+' – '+m);DB.log=DB.log.slice(0,8)};
+const commit=m=>{if(m)log(m);save();render()};
+const nowLocal=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
+const money=v=>'₹'+Number(v||0).toLocaleString('en-IN');
+const rentalOpen=r=>!DB.returns.some(x=>x.rental_id===r.id);
+
+function form(title,fields,vals,cb){
+  const ov=document.createElement('div');ov.className='ov';
+  const h=fields.map(f=>{const v=vals[f.k]??'';let inp;
+    if(f.fk||f.o){const os=f.fk?DB[f.fk].map(r=>({v:r.id,l:S[f.fk].lab(r)})):f.o;inp=`<select name="${f.k}">${os.map(o=>`<option value="${esc(o.v)}"${o.v===v?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`}
+    else inp=`<input name="${f.k}" type="${f.type||(f.n?'number':'text')}" value="${esc(v)}" ${f.n?'step="any" min="0"':''}>`;
+    return `<label>${f.l}${f.req?' *':''}</label>${inp}`}).join('');
+  ov.innerHTML=`<form class="mod"><h2 style="font-size:18px;margin-bottom:6px">${esc(title)}</h2>${h}<div class="err"></div><div class="row" style="margin-top:14px"><button type="button" class="btn s c">Cancel</button><button class="btn">Save</button></div></form>`;
+  document.body.appendChild(ov);
+  ov.querySelector('.c').onclick=()=>ov.remove();
+  ov.querySelector('form').onsubmit=e=>{e.preventDefault();const v={};
+    fields.forEach(f=>{let x=ov.querySelector(`[name="${f.k}"]`).value.trim();v[f.k]=f.n&&x!==''?Number(x):x});
+    const er=cb(v);if(er){ov.querySelector('.err').textContent=er}else ov.remove()};
+}
+function check(t,v,id){
+  const s=S[t];
+  for(const f of s.f){if(f.req&&(v[f.k]===''||v[f.k]==null||Number.isNaN(v[f.k])))return f.l+' is required';
+    if(f.uniq&&DB[t].some(r=>r.id!==id&&String(r[f.k]).toLowerCase()===String(v[f.k]).toLowerCase()))return f.l+' must be unique (already exists)';
+    if(f.n&&v[f.k]<0)return f.l+' cannot be negative'}
+  if(t==='vehicles'&&!(v.daily_rate>0))return 'Daily rate must be greater than 0';
+  if(t==='reservations'){
+    if(v.end_date<v.start_date)return 'End date must be on or after the start date';
+    if(get('vehicles',v.vehicle_id)?.status==='Maintenance')return 'Vehicle is under maintenance';
+    if(v.status!=='Cancelled'&&v.status!=='Completed'&&DB.reservations.some(r=>r.id!==id&&r.vehicle_id===v.vehicle_id&&r.status!=='Cancelled'&&r.status!=='Completed'&&r.start_date<=v.end_date&&r.end_date>=v.start_date))return 'Vehicle is already reserved for these dates (double booking blocked)'}
+}
+function edit(t,id){const s=S[t],row=id?get(t,id):null;
+  if(!row)for(const f of s.f)if(f.fk&&!DB[f.fk].length){alert('Add a record in '+S[f.fk].t+' first');return}
+  const d={};s.f.forEach(f=>{if(f.type==='datetime-local')d[f.k]=nowLocal();if(f.fk)d[f.k]=DB[f.fk][0]?.id});
+  form((row?'Edit ':'Add ')+s.t.replace(/s$/,''),s.f,row||d,v=>{const e=check(t,v,id);if(e)return e;
+    if(row)Object.assign(row,v);else DB[t].push({id:nid(t),...v});
+    commit((row?'Updated ':'Added ')+s.t.toLowerCase().replace(/s$/,'')+' '+(row?id:DB[t].at(-1).id))})}
+function del(t,id){
+  for(const u of Object.keys(S))for(const f of S[u].f)if(f.fk===t&&DB[u].some(r=>r[f.k]===id)){alert('Cannot delete '+id+': it is referenced in '+S[u].t+' (foreign key)');return}
+  if(!confirm('Delete '+id+'?'))return;DB[t]=DB[t].filter(r=>r.id!==id);commit('Deleted '+id)}
+function pickup(id){const r=get('reservations',id),v=get('vehicles',r.vehicle_id);
+  if(v.status!=='Available'){alert('Vehicle is '+v.status+', not available for pickup');return}
+  form('Pickup for '+id,[{k:'pickup_datetime',l:'Pickup time',type:'datetime-local'},{k:'odometer_out',l:'Odometer out',n:1},{k:'fuel_out',l:'Fuel out',o:opt(['Full','3/4','1/2','1/4'])},{k:'deposit',l:'Deposit (₹)',n:1}],{pickup_datetime:nowLocal(),odometer_out:0,deposit:5000},x=>{
+    const rid=nid('rentals');DB.rentals.push({id:rid,reservation_id:id,...x});r.status='Active';v.status='Rented';commit('Pickup '+rid+' – '+v.reg_no+' is now Rented')})}
+function doReturn(id){const rt=get('rentals',id),r=get('reservations',rt.reservation_id),v=get('vehicles',r.vehicle_id);
+  form('Return for '+id,[{k:'return_datetime',l:'Return time',type:'datetime-local'},{k:'odometer_in',l:'Odometer in',n:1},{k:'damage_notes',l:'Damage notes'}],{return_datetime:nowLocal(),odometer_in:rt.odometer_out,damage_notes:'None'},x=>{
+    if(x.odometer_in<rt.odometer_out)return 'Odometer in cannot be less than odometer out';
+    const days=Math.max(1,Math.round((new Date(r.end_date)-new Date(r.start_date))/864e5));
+    const due=new Date(r.end_date+'T'+rt.pickup_datetime.slice(11));const late=Math.max(0,Math.ceil((new Date(x.return_datetime)-due)/36e5));
+    const fee=Math.round(late*v.daily_rate*0.1),retId=nid('returns');
+    DB.returns.push({id:retId,rental_id:id,...x,late_fee:fee});r.status='Completed';v.status='Available';
+    DB.payments.push({id:nid('payments'),rental_id:id,amount:days*v.daily_rate+fee,mode:'UPI',status:'Pending'});
+    commit('Return '+retId+' – '+v.reg_no+' Available again, bill '+money(days*v.daily_rate+fee)+' (late '+late+'h)')})}
+
+function tag(v){const c=/^(Available|Confirmed|SUCCESS|Completed|Returned)$/.test(v)?'ok':/^(Maintenance|Cancelled|Failed|Open)$/.test(v)?'bad':/^(Rented|Pending|Active|Refunded)$/.test(v)?'w':'';return c?`<span class="tag ${c}">${esc(v)}</span>`:esc(v)}
+function cell(f,r){const v=r[f.k];if(v===''||v==null)return '–';if(f.fk)return esc(nm(f.fk,v));
+  if(['daily_rate','deposit','late_fee','amount'].includes(f.k))return money(v);return f.k==='status'?tag(v):esc(v)}
+function dash(){
+  const V=DB.vehicles,av=V.filter(v=>v.status==='Available').length,rev=DB.payments.filter(p=>p.status==='SUCCESS').reduce((a,p)=>a+p.amount,0),pend=DB.payments.filter(p=>p.status==='Pending').reduce((a,p)=>a+p.amount,0);
+  const st=[['Customers',DB.customers.length],['Vehicles',V.length],['Available',av],['Rented',V.filter(v=>v.status==='Rented').length],['Open reservations',DB.reservations.filter(r=>/Pending|Confirmed/.test(r.status)).length],['Active rentals',DB.rentals.filter(rentalOpen).length],['Revenue (paid)',money(rev)],['Awaiting payment',money(pend)]];
+  return `<div class="cards">${st.map(s=>`<div class="stat"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('')}</div>
+  <div class="box"><h2 style="font-size:16px;margin-bottom:8px">Fleet by branch</h2><div class="wrap"><table><tr><th>Branch</th><th>Vehicles</th><th>Available</th><th>Rented</th></tr>${DB.branches.map(b=>{const f=V.filter(v=>v.branch_id===b.id);return `<tr><td>${esc(b.name)}</td><td>${f.length}</td><td>${f.filter(v=>v.status==='Available').length}</td><td>${f.filter(v=>v.status==='Rented').length}</td></tr>`}).join('')||'<tr><td colspan=4>No branches</td></tr>'}</table></div></div>
+  <div class="box log"><h2 style="font-size:16px;margin-bottom:8px">Live activity</h2>${DB.log.map(l=>`<div>${esc(l)}</div>`).join('')}</div>
+  <p class="note">Workflow: add records → create a Reservation → click Pickup → click Return. Vehicle status, bill, late fee (10% of daily rate per late hour) and payment update automatically. Data is saved in this browser.</p>`}
+function grid(t){
+  const s=S[t],fs=s.f,rows=DB[t].filter(r=>!q||JSON.stringify(Object.values(r)).toLowerCase().includes(q.toLowerCase()));
+  const extra=r=>{let a='';if(t==='reservations'&&/Pending|Confirmed/.test(r.status))a+=`<button class="btn s g" data-a="pickup" data-id="${r.id}">Pickup</button>`;
+    if(t==='rentals'&&rentalOpen(r))a+=`<button class="btn s g" data-a="ret" data-id="${r.id}">Return</button>`;return a};
+  return `<div class="row"><h2>${s.t} <span class="note">${DB[t].length} rows</span></h2><div class="row" style="margin:0"><input class="srch" id="q" placeholder="Search…" value="${esc(q)}"><button class="btn" data-a="add">+ Add</button></div></div>
+  <div class="wrap"><table><tr><th>ID</th>${fs.map(f=>`<th>${f.l}</th>`).join('')}${t==='rentals'?'<th>State</th>':''}<th></th></tr>
+  ${rows.map(r=>`<tr><td><b>${r.id}</b></td>${fs.map(f=>`<td>${cell(f,r)}</td>`).join('')}${t==='rentals'?`<td>${tag(rentalOpen(r)?'Open':'Returned')}</td>`:''}<td style="white-space:nowrap">${extra(r)}<button class="btn s" data-a="edit" data-id="${r.id}">Edit</button><button class="btn s d" data-a="del" data-id="${r.id}">Delete</button></td></tr>`).join('')||`<tr><td colspan="${fs.length+3}" style="color:var(--mut)">No records yet – click + Add</td></tr>`}</table></div>`}
+function render(){
+  $nav.innerHTML=TABS.map(t=>`<button class="${t===tab?'on':''}" data-t="${t}">${t==='dashboard'?'Dashboard':S[t].t}${t==='dashboard'?'':`<span class="n">${DB[t].length}</span>`}</button>`).join('');
+  $main.innerHTML=tab==='dashboard'?dash():grid(tab);
+  const qi=document.getElementById('q');if(qi)qi.oninput=()=>{q=qi.value;const p=qi.selectionStart;render();const n=document.getElementById('q');n.focus();n.setSelectionRange(p,p)};
+}
+const $nav=document.getElementById('nav'),$main=document.getElementById('main');
+$nav.onclick=e=>{const t=e.target.closest('[data-t]')?.dataset.t;if(t){tab=t;q='';render()}};
+$main.onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a,id=b.dataset.id;
+  if(a==='add')edit(tab);else if(a==='edit')edit(tab,id);else if(a==='del')del(tab,id);else if(a==='pickup')pickup(id);else if(a==='ret')doReturn(id)};
+document.getElementById('reset').onclick=()=>{if(confirm('Reset all data to the sample database?')){DB=JSON.parse(JSON.stringify(SEED));commit()}};
+render();
+</script></body></html>
